@@ -1,11 +1,12 @@
 from flask import Flask, request
 import pandas as pd
 import asyncio
+import os
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from rapidfuzz import process
 
 # ====== TOKEN ======
-TOKEN = "8781950106:AAGHnuivucHVs1XRmOs9-orSC7kcpQPa3Vg"
+TOKEN = os.environ.get("8781950106:AAGHnuivucHVs1XRmOs9-orSC7kcpQPa3Vg")  # lấy từ biến môi trường
 bot = Bot(token=TOKEN)
 
 # ====== LOAD DATA ======
@@ -16,11 +17,10 @@ df = df.fillna("").astype(str)
 COL_OLD = "ID OLD"
 COL_NEW = "ID NEW"
 
-# chuẩn hóa
 df[COL_OLD] = df[COL_OLD].str.lower()
 df[COL_NEW] = df[COL_NEW].str.lower()
 
-# ====== TẠO LOOKUP SIÊU NHANH ======
+# ====== LOOKUP ======
 lookup = {}
 all_ids = []
 
@@ -41,13 +41,17 @@ app = Flask(__name__)
 def home():
     return "Bot is running"
 
+@app.route("/ping")
+def ping():
+    return "ok"
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
     asyncio.run(process_update(data))
     return "ok"
 
-# ====== HÀM FORMAT ======
+# ====== FORMAT ======
 def format_result(row):
     return (
         "🔎 *KẾT QUẢ TRA CỨU*\n"
@@ -61,12 +65,12 @@ def format_result(row):
         "━━━━━━━━━━━━━━"
     )
 
-# ====== FUZZY SEARCH PRO ======
+# ====== FUZZY ======
 def fuzzy_search(text):
     results = process.extract(text, all_ids, limit=5)
     return [r[0] for r in results if r[1] > 60]
 
-# ====== XỬ LÝ ======
+# ====== HANDLE ======
 async def process_update(data):
     try:
         update = Update.de_json(data, bot)
@@ -78,18 +82,16 @@ async def process_update(data):
 
             await bot.send_message(chat_id, "⏳ Đang xử lý...")
 
-            # ===== TÌM NHANH =====
+            # tìm chính xác
             if text in lookup:
                 row = lookup[text]
                 await bot.send_message(chat_id, format_result(row), parse_mode="Markdown")
                 return
 
-            # ===== TÌM CHỨA =====
+            # tìm chứa
             contains = [k for k in all_ids if text in k][:5]
             if contains:
-                keyboard = [
-                    [InlineKeyboardButton(i, callback_data=i)] for i in contains
-                ]
+                keyboard = [[InlineKeyboardButton(i, callback_data=i)] for i in contains]
                 await bot.send_message(
                     chat_id,
                     "🔎 Không tìm thấy chính xác, chọn gần đúng:",
@@ -97,13 +99,10 @@ async def process_update(data):
                 )
                 return
 
-            # ===== FUZZY =====
+            # fuzzy
             matches = fuzzy_search(text)
-
             if matches:
-                keyboard = [
-                    [InlineKeyboardButton(i, callback_data=i)] for i in matches
-                ]
+                keyboard = [[InlineKeyboardButton(i, callback_data=i)] for i in matches]
                 await bot.send_message(
                     chat_id,
                     "🤖 Bạn có muốn tìm:",
@@ -112,7 +111,7 @@ async def process_update(data):
             else:
                 await bot.send_message(chat_id, "❌ Không tìm thấy ID")
 
-        # ===== CLICK BUTTON =====
+        # ===== BUTTON =====
         elif update.callback_query:
             query = update.callback_query
             chat_id = query.message.chat_id
@@ -129,8 +128,5 @@ async def process_update(data):
 
 # ====== RUN ======
 if __name__ == "__main__":
-
-   import os
-
-port = int(os.environ.get("PORT", 10000))
-app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
