@@ -39,10 +39,16 @@ def home():
 def ping():
     return "ok"
 
+import asyncio
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    asyncio.run(process_update(data))
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(process_update(data))
+
     return "ok"
 
 def format_result(row):
