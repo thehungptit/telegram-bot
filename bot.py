@@ -1,13 +1,14 @@
-from flask import Flask, request
+from fastapi import FastAPI, Request
 import pandas as pd
 import os
-import asyncio
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from rapidfuzz import process
 
 # ===== CONFIG =====
 TOKEN = os.environ.get("TOKEN")
 bot = Bot(token=TOKEN)
+
+app = FastAPI()
 
 # ===== LOAD DATA =====
 df = pd.read_excel("data.xlsx")
@@ -37,29 +38,6 @@ for i, row in df.iterrows():
 
 all_ids = list(set(all_ids))
 
-# ===== APP =====
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Bot is running"
-
-@app.route("/ping")
-def ping():
-    return "ok"
-
-import threading
-
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    data = request.get_json()
-
-    threading.Thread(
-        target=lambda: asyncio.run(process_update(data))
-    ).start()
-
-    return "ok"
-
 # ===== UTILS =====
 def safe(text):
     return str(text).replace("_", "\\_").replace("*", "\\*")
@@ -81,7 +59,22 @@ def fuzzy_search(text):
     results = process.extract(text, all_ids, limit=5)
     return [r[0] for r in results if r[1] > 60]
 
-# ===== MAIN =====
+# ===== ROUTES =====
+@app.get("/")
+async def home():
+    return {"status": "Bot is running"}
+
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}
+
+@app.post("/webhook")
+async def webhook(req: Request):
+    data = await req.json()
+    await process_update(data)
+    return {"ok": True}
+
+# ===== MAIN LOGIC =====
 async def process_update(data):
     try:
         update = Update.de_json(data, bot)
@@ -135,8 +128,3 @@ async def process_update(data):
         import traceback
         print("LỖI:", e)
         traceback.print_exc()
-
-# ===== RUN =====
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
