@@ -48,10 +48,16 @@ def home():
 def ping():
     return "ok"
 
+import threading
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    asyncio.run(process_update(data))
+
+    threading.Thread(
+        target=lambda: asyncio.run(process_update(data))
+    ).start()
+
     return "ok"
 
 # ===== UTILS =====
