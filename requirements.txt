@@ -1,5 +1,5 @@
-Flask
+Flask==2.2.5
 pandas
 rapidfuzz
-python-telegram-bot==13.15
 openpyxl
+python-telegram-bot==13.15

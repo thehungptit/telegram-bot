@@ -4,25 +4,24 @@ import os
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from rapidfuzz import process
 
-# ====== CONFIG ======
+# ===== CONFIG =====
 TOKEN = os.environ.get("TOKEN")
 bot = Bot(token=TOKEN)
 
-# ====== LOAD DATA ======
+# ===== LOAD DATA =====
 df = pd.read_excel("data.xlsx")
 df.columns = df.columns.str.strip()
 df = df.fillna("").astype(str)
 
 ID_COLUMNS = ["ID O", "ID N", "ID OLD", "ID NEW"]
 
-# giữ bản gốc để hiển thị
 df_original = df.copy()
 
-# bản dùng để search (lower)
+# lower để search
 for col in ID_COLUMNS:
     df[col] = df[col].str.lower()
 
-# ====== BUILD LOOKUP ======
+# ===== BUILD LOOKUP =====
 lookup = {}
 all_ids = []
 
@@ -37,7 +36,7 @@ for i, row in df.iterrows():
 
 all_ids = list(set(all_ids))
 
-# ====== APP ======
+# ===== APP =====
 app = Flask(__name__)
 
 @app.route("/")
@@ -46,6 +45,7 @@ def home():
 
 @app.route("/ping")
 def ping():
+    print("PING OK")
     return "ok"
 
 @app.route("/webhook", methods=["POST"])
@@ -54,7 +54,7 @@ def webhook():
     process_update(data)
     return "ok"
 
-# ====== UTILS ======
+# ===== UTILS =====
 def safe(text):
     return str(text).replace("_", "\\_").replace("*", "\\*")
 
@@ -75,12 +75,12 @@ def fuzzy_search(text):
     results = process.extract(text, all_ids, limit=5)
     return [r[0] for r in results if r[1] > 60]
 
-# ====== MAIN ======
+# ===== MAIN =====
 def process_update(data):
     try:
         update = Update.de_json(data, bot)
 
-        # ====== MESSAGE ======
+        # MESSAGE
         if update.message:
             text = update.message.text.strip().lower()
             chat_id = update.message.chat_id
@@ -90,12 +90,12 @@ def process_update(data):
             if not text:
                 return
 
-            # ====== EXACT ======
+            # EXACT
             if text in lookup:
                 bot.send_message(chat_id, format_result(lookup[text]), parse_mode="Markdown")
                 return
 
-            # ====== CONTAINS ======
+            # CONTAINS
             contains = []
             for k in all_ids:
                 if text in k:
@@ -108,7 +108,7 @@ def process_update(data):
                 bot.send_message(chat_id, "🔎 Gợi ý gần đúng:", reply_markup=InlineKeyboardMarkup(keyboard))
                 return
 
-            # ====== FUZZY ======
+            # FUZZY
             matches = fuzzy_search(text)
             if matches:
                 keyboard = [[InlineKeyboardButton(i, callback_data=i)] for i in matches]
@@ -116,7 +116,7 @@ def process_update(data):
             else:
                 bot.send_message(chat_id, "❌ Không tìm thấy")
 
-        # ====== CLICK ======
+        # BUTTON CLICK
         elif update.callback_query:
             query = update.callback_query
             chat_id = query.message.chat_id
@@ -134,7 +134,7 @@ def process_update(data):
         print("LỖI:", e)
         traceback.print_exc()
 
-# ====== RUN ======
+# ===== RUN =====
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
