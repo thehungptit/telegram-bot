@@ -58,10 +58,8 @@ def format_result(row):
     return (
         "🔎 *KẾT QUẢ TRA CỨU*\n"
         "━━━━━━━━━━━━━━\n"
-        f"🆔 *ID O*   : {safe(row.get('ID O',''))}\n"
-        f"🆔 *ID N*   : {safe(row.get('ID N',''))}\n"
-        f"🆔 *ID OLD* : {safe(row.get('ID OLD',''))}\n"
-        f"🔄 *ID NEW* : {safe(row.get('ID NEW',''))}\n\n"
+        f"🆔 *ID OLD* : {safe(row.get('ID OLD','')).upper()}\n"
+        f"🔄 *ID NEW* : {safe(row.get('ID NEW','')).upper()}\n\n"
         f"🏗 *VHKT*       : {safe(row.get('VHKT',''))}\n"
         f"🏭 *Loại trạm*  : {safe(row.get('LOAI TRAM',''))}\n"
         f"⭐ *Ưu tiên*    : {safe(row.get('UU TIEN',''))}\n"
