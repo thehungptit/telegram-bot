@@ -1,6 +1,7 @@
 from flask import Flask, request
 import pandas as pd
 import os
+import asyncio
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from rapidfuzz import process
 
@@ -45,13 +46,12 @@ def home():
 
 @app.route("/ping")
 def ping():
-    print("PING OK")
     return "ok"
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    process_update(data)
+    asyncio.run(process_update(data))
     return "ok"
 
 # ===== UTILS =====
@@ -76,23 +76,21 @@ def fuzzy_search(text):
     return [r[0] for r in results if r[1] > 60]
 
 # ===== MAIN =====
-def process_update(data):
+async def process_update(data):
     try:
         update = Update.de_json(data, bot)
 
         # MESSAGE
         if update.message:
-            text = update.message.text.strip().lower()
+            text = (update.message.text or "").strip().lower()
             chat_id = update.message.chat_id
-
-            print("INPUT:", text)
 
             if not text:
                 return
 
             # EXACT
             if text in lookup:
-                bot.send_message(chat_id, format_result(lookup[text]), parse_mode="Markdown")
+                await bot.send_message(chat_id, format_result(lookup[text]), parse_mode="Markdown")
                 return
 
             # CONTAINS
@@ -105,16 +103,16 @@ def process_update(data):
 
             if contains:
                 keyboard = [[InlineKeyboardButton(i, callback_data=i)] for i in contains]
-                bot.send_message(chat_id, "🔎 Gợi ý gần đúng:", reply_markup=InlineKeyboardMarkup(keyboard))
+                await bot.send_message(chat_id, "🔎 Gợi ý gần đúng:", reply_markup=InlineKeyboardMarkup(keyboard))
                 return
 
             # FUZZY
             matches = fuzzy_search(text)
             if matches:
                 keyboard = [[InlineKeyboardButton(i, callback_data=i)] for i in matches]
-                bot.send_message(chat_id, "🤖 Bạn có muốn tìm:", reply_markup=InlineKeyboardMarkup(keyboard))
+                await bot.send_message(chat_id, "🤖 Bạn có muốn tìm:", reply_markup=InlineKeyboardMarkup(keyboard))
             else:
-                bot.send_message(chat_id, "❌ Không tìm thấy")
+                await bot.send_message(chat_id, "❌ Không tìm thấy")
 
         # BUTTON CLICK
         elif update.callback_query:
@@ -122,12 +120,10 @@ def process_update(data):
             chat_id = query.message.chat_id
             key = query.data
 
-            print("CLICK:", key)
-
-            bot.answer_callback_query(query.id)
+            await bot.answer_callback_query(query.id)
 
             if key in lookup:
-                bot.send_message(chat_id, format_result(lookup[key]), parse_mode="Markdown")
+                await bot.send_message(chat_id, format_result(lookup[key]), parse_mode="Markdown")
 
     except Exception as e:
         import traceback
